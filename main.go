@@ -40,6 +40,7 @@ var (
 	metricsPath         = flag.String("web.telemetry-path", "/metrics", "Path under which to expose metrics.")
 	persistenceFile     = flag.String("persistence.file", "", "File to persist metrics. If empty, metrics are only kept in memory.")
 	persistenceInterval = flag.Duration("persistence.interval", 5*time.Minute, "The minimum interval at which to write out the persistence file.")
+	ttl                 = flag.Int("ttl", 0, "A global time to live in seconds.  If a job has not received a new pushed metric within the ttl, it will be deleted.  Default is disabled with a value of 0.")
 )
 
 func init() {
@@ -97,6 +98,11 @@ func main() {
 	statusHandler := prometheus.InstrumentHandlerFunc("status", handler.Status(ms, Asset, flags))
 	r.Handler("GET", "/status", statusHandler)
 	r.Handler("GET", "/", statusHandler)
+
+	if *ttl != 0 {
+		log.Infof("TTL enabled with value of %d", *ttl)
+		go storage.TTL(ttl, ms)
+	}
 
 	// Re-enable pprof.
 	r.GET("/debug/pprof/*pprof", handlePprof)
